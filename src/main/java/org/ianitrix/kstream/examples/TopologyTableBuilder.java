@@ -13,28 +13,58 @@ import org.ianitrix.kstream.examples.pojo.json.*;
 import java.util.LinkedList;
 import java.util.List;
 
+/**
+ * Same as the stream version, but now the sale or not immutable.
+ * When we update a sale with a existing saleID, the total price by product is update:
+ * Indeed, thanks to the KTable and the aggregation, the impact of the previous version of the sale is remove
+ * and then the new version of the sale is added.
+ */
 public class TopologyTableBuilder {
 
+    /**
+     * Topic name that contains prices
+     */
+    public static final String TOPIC_PRICE = "prices";
 
     /**
-     * Same as the stream version.
-     * @return
+     * Topic name that contains sales
+     */
+    public static final String TOPIC_SALE = "sales";
+
+    /**
+     * Build the topology
+     * @return topology
      */
     public Topology buildTable() {
         StreamsBuilder builder = new StreamsBuilder();
 
         final Serde<String> stringSerde = Serdes.String();
 
-        final KTable<PriceKey, Price> prices = builder.table("prices", Consumed.with(SerdesUtils.createJsonSerdes(PriceKey.class), SerdesUtils.createJsonSerdes(Price.class)));
+        // a ktable that contains all prices for each tuple{productId,storeId}
+        // same as TopologyStreamBuilder
+        final KTable<PriceKey, Price> prices = builder.table(TOPIC_PRICE, Consumed.with(SerdesUtils.createJsonSerdes(PriceKey.class), SerdesUtils.createJsonSerdes(Price.class)));
 
-        final KStream<SaleKey, Sale> sales = builder.stream("sales", Consumed.with(SerdesUtils.createJsonSerdes(SaleKey.class), SerdesUtils.createJsonSerdes(Sale.class)));
+        // a kstream that contains mutable sales
+        // Now, we can update a sale by sending a sale with the same saleId.
+        // However, we do not create a ktable for a sale, because do not need to keep the previous complete sale (only each line of sale is needed)
+        final KStream<SaleKey, Sale> sales = builder.stream(TOPIC_SALE, Consumed.with(SerdesUtils.createJsonSerdes(SaleKey.class), SerdesUtils.createJsonSerdes(Sale.class)));
 
 
-        // total quantity of products sales by store
+        // 1. input sale -> output list of products (i.e., corresponding to lines of sale)
+        // since a sale contains several products, we split the sale
+        // since a line of sale does not contains any information about the sale, we also change the key in order to add storeId
+        // Moreover, in addition we also add the saleId in the key in order to be able to update a sale line of a given sale
         final KStream<PricedProductLineKey, SaleLine> productSaleLines = sales.flatMap((saleKey, sale) -> this.createPricedSaleLines(saleKey, sale));
-        final KGroupedStream<PricedProductLineKey, SaleLine> productKeySaleLineKGroupedStream = productSaleLines.groupByKey(Grouped.with(SerdesUtils.createJsonSerdes(PricedProductLineKey.class), SerdesUtils.createJsonSerdes(SaleLine.class)));
-        final KTable<PricedProductLineKey, SaleLine> reduce = productKeySaleLineKGroupedStream.reduce((saleLine, v1) -> v1);
-        final KGroupedTable<PriceKey, SaleLine> priceKeySaleLineKGroupedTable = reduce.groupBy((pricedProductLineKey, saleLine) -> KeyValue.pair(new PriceKey(pricedProductLineKey.getProductId(), pricedProductLineKey.getStoreId()), saleLine),
+
+        // 2. we group the line of sale by the price of key
+        // Now, for each tuple{productId,storeId, saleId}, we have the corresponding line of sales
+        final KGroupedStream<PricedProductLineKey, SaleLine> groupedProductSaleLines = productSaleLines.groupByKey(Grouped.with(SerdesUtils.createJsonSerdes(PricedProductLineKey.class), SerdesUtils.createJsonSerdes(SaleLine.class)));
+
+        //3. we create a ktable in order to keep, for each line of sale, the last version.
+        final KTable<PricedProductLineKey, SaleLine> tableProductSaleLines = groupedProductSaleLines.reduce((saleLine, v1) -> v1);
+
+
+        final KGroupedTable<PriceKey, SaleLine> priceKeySaleLineKGroupedTable = tableProductSaleLines.groupBy((pricedProductLineKey, saleLine) -> KeyValue.pair(new PriceKey(pricedProductLineKey.getProductId(), pricedProductLineKey.getStoreId()), saleLine),
                 Grouped.with(SerdesUtils.createJsonSerdes(PriceKey.class), SerdesUtils.createJsonSerdes(SaleLine.class)));
 
         final KTable<PriceKey, Double> saleNumber = priceKeySaleLineKGroupedTable.aggregate(() -> 0.0,
@@ -62,15 +92,6 @@ public class TopologyTableBuilder {
 
 
         return builder.build();
-    }
-
-
-    private List<KeyValue<PriceKey,SaleLine>> createSaleLines(final SaleKey saleKey, final Sale sale) {
-        final List<KeyValue<PriceKey,SaleLine>> saleLines = new LinkedList<>();
-
-        sale.getSaleLines().forEach(saleLine -> saleLines.add(KeyValue.pair(new PriceKey(saleLine.getProductId(), sale.getStoreId()), saleLine)));
-
-        return saleLines;
     }
 
     private List<KeyValue<PricedProductLineKey,SaleLine>> createPricedSaleLines(final SaleKey saleKey, final Sale sale) {

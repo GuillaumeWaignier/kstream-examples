@@ -17,11 +17,21 @@ import java.util.*;
  */
 public class TopologyStreamBuilder {
 
+    /**
+     * Topic name that contains prices
+     */
     public static final String TOPIC_PRICE = "prices";
+
+    /**
+     * Topic name that contains sales
+     */
     public static final String TOPIC_SALE = "sales";
 
 
-
+    /**
+     * Build the topology
+     * @return topology
+     */
     public Topology buildStream() {
         StreamsBuilder builder = new StreamsBuilder();
 
