@@ -1,5 +1,8 @@
 # kstream-examples
 
+[![Build status](https://travis-ci.org/GuillaumeWaignier/kstream-examples.svg?branch=master)](https://travis-ci.org/GuillaumeWaignier/kstream-examples) [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=org.ianitrix.kstream.example%3Akstream-examples&metric=alert_status)](https://sonarcloud.io/dashboard/index/org.ianitrix.kstream:kstream-examples)
+
+
 topic price:
 
 
