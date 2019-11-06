@@ -32,6 +32,11 @@ public class TopologyTableBuilder {
     public static final String TOPIC_SALE = "sales";
 
     /**
+     * Topic name that contains the kstream result : total price of each sale by productId.
+     */
+    public static final String TOPIC_TOTAL_PRICE = "tableTotalPrice";
+
+    /**
      * Build the topology
      * @return topology
      */
@@ -88,7 +93,7 @@ public class TopologyTableBuilder {
                         .withKeySerde(SerdesUtils.createJsonSerdes(ProductKey.class)) /* key serde */
                         .withValueSerde(Serdes.Double()));
         totalSale.toStream().map((productKey, price) -> KeyValue.pair(productKey.toString(), String.valueOf(price)))
-                .to("tableTotalPrice", Produced.with(stringSerde, stringSerde));
+                .to(TOPIC_TOTAL_PRICE, Produced.with(stringSerde, stringSerde));
 
 
         return builder.build();
