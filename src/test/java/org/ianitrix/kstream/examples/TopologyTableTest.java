@@ -11,7 +11,9 @@ import org.ianitrix.kstream.examples.pojo.json.*;
 import org.junit.Assert;
 import org.junit.jupiter.api.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 public class TopologyTableTest {
@@ -119,26 +121,11 @@ public class TopologyTableTest {
         outputRecord = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
         OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=tv)", "1020.0");
 
-        //Update total because now there is only one TV in sale '1' instead of two
-        outputRecord = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
-        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=tv)", "1000.0");
-        outputRecord = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
-        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=tv)", "1000.0");
-        outputRecord = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
-        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=tv)", "1000.0");
-        outputRecord = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
-        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=tv)", "1010.0");
-        outputRecord = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
-        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=phone)", "0.0");
-        outputRecord = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
-        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=phone)", "0.0");
-        outputRecord = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
-        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=phone)", "0.0");
-        outputRecord = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
-        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=phone)", "6.0");
+        //Update total because now there is only one TV in sale '1' instead of 2
+        final Map<String, ProducerRecord<String, String>> records = this.readAllRecords(TopologyTableBuilder.TOPIC_TOTAL_PRICE);
+        OutputVerifier.compareKeyValue(records.get("ProductKey(productId=tv)"), "ProductKey(productId=tv)", "1010.0");
+        OutputVerifier.compareKeyValue(records.get("ProductKey(productId=phone)"), "ProductKey(productId=phone)", "6.0");
 
-        Assert.assertNull(testDriver.readOutput(
-                TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer()));
     }
 
     @Test
@@ -191,5 +178,15 @@ public class TopologyTableTest {
         testDriver.pipeInput(priceRecordFactory.create(TopologyTableBuilder.TOPIC_PRICE, priceKeyTvParis, new Price(1000)));
         testDriver.pipeInput(priceRecordFactory.create(TopologyTableBuilder.TOPIC_PRICE, priceKeyPhoneLille, new Price(3)));
         testDriver.pipeInput(priceRecordFactory.create(TopologyTableBuilder.TOPIC_PRICE, priceKeyPhoneParis, new Price(300)));
+    }
+
+    private Map<String, ProducerRecord<String, String>> readAllRecords(final String topicName) {
+        final Map<String, ProducerRecord<String, String>> records = new HashMap<>();
+        ProducerRecord<String, String> record = testDriver.readOutput(topicName, new StringDeserializer(), new StringDeserializer());
+        while (record != null) {
+            records.put(record.key(), record);
+            record = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
+        }
+        return records;
     }
 }
