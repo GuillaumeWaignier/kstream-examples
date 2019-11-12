@@ -1,5 +1,6 @@
 package org.ianitrix.kstream.examples;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.*;
 import org.apache.kafka.streams.StreamsConfig;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+@Slf4j
 public class TopologyTableTest {
 
     private TopologyTestDriver testDriver;
@@ -41,6 +43,7 @@ public class TopologyTableTest {
     public void setup() {
         final TopologyTableBuilder builder = new TopologyTableBuilder();
         final Topology topology = builder.buildTable();
+        log.info(topology.describe().toString());
 
         final Properties config = Main.getStreamConfig();
         config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");

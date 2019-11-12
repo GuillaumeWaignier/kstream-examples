@@ -15,7 +15,7 @@ public class Main {
     log.info("Start Stream");
 
     final Properties config = getStreamConfig();
-    final Topology topology = new TopologyTableBuilder().buildTable();
+    final Topology topology = new TopologyStreamBuilder().buildStream();
     log.info(topology.describe().toString());
 
     final KafkaStreams streams = new KafkaStreams(topology, config);

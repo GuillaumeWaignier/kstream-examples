@@ -69,7 +69,12 @@ public class TopologyStreamBuilder {
 
         //4. we merge the quantity of sale product with the price
         // We obtain the total price for each tuple{productId,storeId}
-        final KTable<PriceKey, Double> totalPriceByStore = quantitySaleProduct.join(prices, (quantity, price) -> quantity * price.getPriceHT());
+        final KTable<PriceKey, Double> totalPriceByStore = quantitySaleProduct.join(prices, (quantity, price) -> quantity * price.getPriceHT(),
+                Materialized.<PriceKey, Double, KeyValueStore<Bytes, byte[]>>as(
+                        "priceSaleProduct" /* table/store name */)
+                        .withKeySerde(SerdesUtils.createJsonSerdes(PriceKey.class)) /* key serde */
+                        .withValueSerde(Serdes.Double()) /* value serde */
+        );
 
         //Optional: For testing table content is streamed into a topic.
         //We convert the json into string
@@ -78,10 +83,11 @@ public class TopologyStreamBuilder {
 
 
         //5. We want the total price by product (independently in which store the product is sale)
-        final KGroupedStream<ProductKey, Double> productKeyDoubleKGroupedStream = totalPriceByStore.toStream().groupBy((priceKey, totalPrice) -> priceKey.getProductId(), Grouped.with(SerdesUtils.createJsonSerdes(ProductKey.class), Serdes.Double()));
+        final KGroupedTable<ProductKey, Double> productKeyDoubleKGroupedStream = totalPriceByStore.groupBy((priceKey, totalPrice) -> KeyValue.pair(priceKey.getProductId(),totalPrice), Grouped.with(SerdesUtils.createJsonSerdes(ProductKey.class), Serdes.Double()));
         final KTable<ProductKey, Double> totalSale = productKeyDoubleKGroupedStream.aggregate(() -> 0.0,
-                (productKey, totalPrice, newTotalPrice) -> newTotalPrice + totalPrice,
-        Materialized.<ProductKey, Double, KeyValueStore<Bytes, byte[]>>as("totalSale" /* state store name */)
+                (productKey, newPrice, newTotalPrice) -> newTotalPrice + newPrice,
+                (productKey, oldPrice, newTotalPrice) -> newTotalPrice - oldPrice,
+                Materialized.<ProductKey, Double, KeyValueStore<Bytes, byte[]>>as("totalSale" /* state store name */)
                 .withKeySerde(SerdesUtils.createJsonSerdes(ProductKey.class)) /* key serde */
                 .withValueSerde(Serdes.Double()));
         totalSale.toStream().map((productKey, price) -> KeyValue.pair(productKey.toString(), String.valueOf(price)))
