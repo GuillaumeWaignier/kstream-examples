@@ -73,8 +73,7 @@ public class TopologyStreamBuilder {
                 Materialized.<PriceKey, Double, KeyValueStore<Bytes, byte[]>>as(
                         "priceSaleProduct" /* table/store name */)
                         .withKeySerde(SerdesUtils.createJsonSerdes(PriceKey.class)) /* key serde */
-                        .withValueSerde(Serdes.Double()) /* value serde */
-        );
+                        .withValueSerde(Serdes.Double())                 /* value serde */);
 
         //Optional: For testing table content is streamed into a topic.
         //We convert the json into string
@@ -90,6 +89,7 @@ public class TopologyStreamBuilder {
                 Materialized.<ProductKey, Double, KeyValueStore<Bytes, byte[]>>as("totalSale" /* state store name */)
                 .withKeySerde(SerdesUtils.createJsonSerdes(ProductKey.class)) /* key serde */
                 .withValueSerde(Serdes.Double()));
+
         totalSale.toStream().map((productKey, price) -> KeyValue.pair(productKey.toString(), String.valueOf(price)))
                 .to(TOPIC_TOTAL_PRICE, Produced.with(stringSerde, stringSerde));
 

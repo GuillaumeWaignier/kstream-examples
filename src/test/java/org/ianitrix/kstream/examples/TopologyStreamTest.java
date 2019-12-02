@@ -123,6 +123,7 @@ public class TopologyStreamTest {
         testDriver.pipeInput(saleRecordFactory.create(TopologyStreamBuilder.TOPIC_SALE, new SaleKey("2"), sale2));
         testDriver.pipeInput(saleRecordFactory.create(TopologyStreamBuilder.TOPIC_SALE, new SaleKey("1"), sale1Version2));
 
+
         // Check the number of product sale by store
         final KeyValueStore<PriceKey, Long> quantitySaleProduct = testDriver.getKeyValueStore("quantitySaleProduct");
         Assertions.assertEquals(3, quantitySaleProduct.get(this.priceKeyTvLille));
@@ -149,10 +150,16 @@ public class TopologyStreamTest {
         OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=tv)", "1020.0");
 
         //sale are immutable. The second version of sale1 is added to the previous total
-        this.testDriver.advanceWallClockTime(10000);
-        final Map<String, ProducerRecord<String, String>> records = this.readAllRecords(TopologyStreamBuilder.TOPIC_TOTAL_PRICE);
-        OutputVerifier.compareKeyValue(records.get("ProductKey(productId=tv)"), "ProductKey(productId=tv)", "1030.0");
-        OutputVerifier.compareKeyValue(records.get("ProductKey(productId=phone)"), "ProductKey(productId=phone)", "9.0");
+        // We need to test all intermediate states
+        outputRecord = testDriver.readOutput(TopologyStreamBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
+        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=tv)", "1000.0");
+        outputRecord = testDriver.readOutput(TopologyStreamBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
+        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=tv)", "1030.0");
+
+        outputRecord = testDriver.readOutput(TopologyStreamBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
+        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=phone)", "0.0");
+        outputRecord = testDriver.readOutput(TopologyStreamBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
+        OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=phone)", "9.0");
     }
 
     @Test
@@ -169,7 +176,6 @@ public class TopologyStreamTest {
         // update price of tv for Paris
         final PriceKey priceKeyTvParis = new PriceKey(productKeyTv, storeKeyParis);
         testDriver.pipeInput(priceRecordFactory.create(TopologyStreamBuilder.TOPIC_PRICE, priceKeyTvParis, new Price(33)));
-
 
         ProducerRecord<String, String> outputRecord = testDriver.readOutput(TopologyStreamBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
         OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=tv)", "20.0");
@@ -201,9 +207,15 @@ public class TopologyStreamTest {
         testDriver.pipeInput(priceRecordFactory.create(TopologyStreamBuilder.TOPIC_PRICE, priceKeyPhoneParis, new Price(300)));
     }
 
+    /**
+     * If we read all topics content in one time, we get only the first message
+     * @param topicName
+     * @return
+     */
     private Map<String, ProducerRecord<String, String>> readAllRecords(final String topicName) {
         final Map<String, ProducerRecord<String, String>> records = new HashMap<>();
         ProducerRecord<String, String> record = testDriver.readOutput(topicName, new StringDeserializer(), new StringDeserializer());
+
         while (record != null) {
             records.put(record.key(), record);
             record = testDriver.readOutput(TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
