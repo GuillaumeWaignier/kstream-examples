@@ -15,6 +15,9 @@ import java.util.Map;
  */
 public final class SerdesUtils
 {
+    private SerdesUtils() {
+    }
+
     /**
      * Create Serdes from Json class
      * @param clazz Json class

@@ -160,6 +160,8 @@ public class TopologyStreamTest {
         OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=phone)", "0.0");
         outputRecord = testDriver.readOutput(TopologyStreamBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer());
         OutputVerifier.compareKeyValue(outputRecord, "ProductKey(productId=phone)", "9.0");
+
+        Assert.assertNull(testDriver.readOutput(TopologyStreamBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer()));
     }
 
     @Test
