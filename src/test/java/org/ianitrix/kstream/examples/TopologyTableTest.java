@@ -129,6 +129,8 @@ public class TopologyTableTest {
         OutputVerifier.compareKeyValue(records.get("ProductKey(productId=tv)"), "ProductKey(productId=tv)", "1010.0");
         OutputVerifier.compareKeyValue(records.get("ProductKey(productId=phone)"), "ProductKey(productId=phone)", "6.0");
 
+        Assert.assertNull(testDriver.readOutput(
+                TopologyTableBuilder.TOPIC_TOTAL_PRICE, new StringDeserializer(), new StringDeserializer()));
     }
 
     @Test
